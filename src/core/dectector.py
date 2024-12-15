@@ -1,142 +1,104 @@
 import cv2
+import torch
 import numpy as np
+from pathlib import Path
 from typing import List, Dict, Tuple
-from .model import DetectionModel
-from ..utils.visualization import Visualizer
 
-class ViolationDetector:
-    """Main detector class for helmet violations"""
-    
-    def __init__(self, config: Dict):
-        self.model = DetectionModel(config)
-        self.visualizer = Visualizer()
-        self.min_confidence = config['MIN_CONFIDENCE']
-        self.violation_rules = config['VIOLATION_RULES']
+class HelmetDetector:
+    def __init__(self, model_path: str, conf_thresh: float = 0.5):
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model = self.load_model(model_path)
+        self.conf_thresh = conf_thresh
         
-    def process_frame(self, frame: np.ndarray) -> Tuple[List[Dict], np.ndarray]:
-        """Process a frame and detect violations"""
-        # Get detections
-        detections, processed_frame = self.model.process_frame(frame)
+    def load_model(self, model_path: str) -> torch.nn.Module:
+        """Load YOLOv5 model"""
+        model = torch.hub.load('ultralytics/yolov5', 'custom', path=model_path)
+        model.to(self.device)
+        model.eval()
+        return model
         
-        # Check for violations
-        violations = self._check_violations(detections)
+    def preprocess_image(self, image: np.ndarray) -> torch.Tensor:
+        """Preprocess image for model input"""
+        # Convert BGR to RGB
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # Resize and normalize
+        image = cv2.resize(image, (640, 640))
+        image = image.transpose((2, 0, 1))
+        image = torch.from_numpy(image).float()
+        image /= 255.0
+        return image.unsqueeze(0).to(self.device)
         
-        # Draw detections and violations
-        if violations:
-            processed_frame = self.visualizer.draw_violations(
-                processed_frame,
-                violations
-            )
+    def detect(self, image: np.ndarray) -> List[Dict]:
+        """Detect helmets in image"""
+        processed_img = self.preprocess_image(image)
+        
+        # Inference
+        with torch.no_grad():
+            predictions = self.model(processed_img)
             
-        return violations, processed_frame
-        
-    def _check_violations(self, detections: List[Dict]) -> List[Dict]:
-        """Check for helmet violations"""
-        violations = []
-        riders = []
-        helmets = []
-        
-        # Separate detections by class
-        for detection in detections:
-            if detection['confidence'] < self.min_confidence:
-                continue
+        # Process predictions
+        detections = []
+        for pred in predictions.pred[0]:
+            if pred[4] >= self.conf_thresh:
+                x1, y1, x2, y2 = map(int, pred[:4])
+                conf = float(pred[4])
+                class_id = int(pred[5])
                 
-            if detection['class_name'] == 'rider':
-                riders.append(detection)
-            elif detection['class_name'] == 'helmet':
-                helmets.append(detection)
+                detections.append({
+                    'bbox': (x1, y1, x2, y2),
+                    'confidence': conf,
+                    'class_id': class_id
+                })
                 
-        # Check for violations based on rules
-        if len(riders) > len(helmets):
-            for rider in riders:
-                # Check if rider has a nearby helmet
-                if not self._has_nearby_helmet(rider, helmets):
-                    violations.append({
-                        'type': 'no_helmet',
-                        'confidence': rider['confidence'],
-                        'bbox': rider['bbox'],
-                        'rider_detection': rider
-                    })
-                    
-        return violations
+        return detections
         
-    def _has_nearby_helmet(self, rider: Dict, helmets: List[Dict]) -> bool:
-        """Check if a rider has a nearby helmet"""
-        rider_center = self._get_bbox_center(rider['bbox'])
+    def draw_detections(self, image: np.ndarray, detections: List[Dict]) -> np.ndarray:
+        """Draw bounding boxes on image"""
+        img_copy = image.copy()
         
-        for helmet in helmets:
-            helmet_center = self._get_bbox_center(helmet['bbox'])
-            distance = np.linalg.norm(
-                np.array(rider_center) - np.array(helmet_center)
-            )
+        for det in detections:
+            x1, y1, x2, y2 = det['bbox']
+            conf = det['confidence']
+            class_id = det['class_id']
             
-            if distance < self.violation_rules['MAX_HELMET_DISTANCE']:
-                return True
+            # Draw bbox
+            cv2.rectangle(img_copy, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            
+            # Draw label
+            label = f"Helmet: {conf:.2f}"
+            cv2.putText(img_copy, label, (x1, y1-10), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                       
+        return img_copy
+        
+    def process_video(self, video_path: str, output_path: str = None):
+        """Process video for helmet detection"""
+        cap = cv2.VideoCapture(video_path)
+        
+        if output_path:
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            out = cv2.VideoWriter(output_path, fourcc, 30.0, 
+                                (int(cap.get(3)), int(cap.get(4))))
+        
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
                 
-        return False
-        
-    @staticmethod
-    def _get_bbox_center(bbox: Tuple[int, int, int, int]) -> Tuple[int, int]:
-        """Get center point of bounding box"""
-        x, y, w, h = bbox
-        return (x + w//2, y + h//2)
-
-class LicensePlateDetector:
-    """License plate detection and OCR"""
-    
-    def __init__(self, config: Dict):
-        self.ocr_config = config['OCR_CONFIG']
-        self.min_plate_area = config['MIN_PLATE_AREA']
-        self.plate_aspect_ratio = config['PLATE_ASPECT_RATIO']
-        
-    def detect_plate(self, frame: np.ndarray) -> Tuple[str, Tuple[int, int, int, int]]:
-        """Detect and read license plate"""
-        # Convert to grayscale
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        
-        # Apply filters
-        blur = cv2.GaussianBlur(gray, (5, 5), 0)
-        thresh = cv2.threshold(
-            blur, 0, 255, 
-            cv2.THRESH_BINARY + cv2.THRESH_OTSU
-        )[1]
-        
-        # Find contours
-        contours, _ = cv2.findContours(
-            thresh,
-            cv2.RETR_LIST,
-            cv2.CHAIN_APPROX_SIMPLE
-        )
-        
-        # Check each contour for license plate
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            if area > self.min_plate_area:
-                x, y, w, h = cv2.boundingRect(contour)
-                aspect_ratio = w / float(h)
+            # Detect helmets
+            detections = self.detect(frame)
+            
+            # Draw results
+            frame_with_det = self.draw_detections(frame, detections)
+            
+            if output_path:
+                out.write(frame_with_det)
+            
+            cv2.imshow('Helmet Detection', frame_with_det)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
                 
-                if abs(aspect_ratio - self.plate_aspect_ratio) < 0.5:
-                    # Extract plate region
-                    plate_region = thresh[y:y+h, x:x+w]
-                    
-                    # Perform OCR
-                    try:
-                        plate_text = self._perform_ocr(plate_region)
-                        if self._validate_plate(plate_text):
-                            return plate_text, (x, y, w, h)
-                    except Exception as e:
-                        print(f"OCR Error: {e}")
-                        continue
-                        
-        return None, None
-        
-    def _perform_ocr(self, image: np.ndarray) -> str:
-        """Perform OCR on plate image"""
-        # Implementation depends on OCR library (e.g., Tesseract)
-        # Return cleaned and formatted plate text
-        pass
-        
-    def _validate_plate(self, plate_text: str) -> bool:
-        """Validate license plate format"""
-        # Implement validation logic based on plate format rules
-        pass
+        cap.release()
+        if output_path:
+            out.release()
+        cv2.destroyAllWindows()
