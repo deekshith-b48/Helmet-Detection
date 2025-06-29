@@ -1,0 +1,208 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib60/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a PyInstaller script; this is just a
+#  suggestion for preventing accidental check-ins into VC.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+# *.log  # Covered by generic logs/ below
+# local_settings.py
+# db.sqlite3
+# db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+#   According to Pipenv's documentation, Pipfile.lock is tightly coupled to
+#   Pipfile and should always be committed to version control.
+#   .env # Covered by generic .env below
+
+# virtualenv / venv
+venv/
+ENV/
+env/
+# lib/ # Usually not necessary to ignore lib inside venv, covered by venv/
+# include/ # Same as lib
+# bin/ # Same as lib
+#   With the exception of a requirements file
+!requirements.txt
+!*/requirements.txt
+
+# tox
+# .tox # Already listed above
+
+# Werkzeug cache files for development server
+.werkzeug-cache
+
+# Environments & Secrets
+.env
+.venv
+env.bak
+venv.bak
+secrets.yaml
+*.pem
+*.key
+
+# Data files & Model files - common practice to gitignore if large or binary
+# If your datasets/models are small and text-based, or managed by Git LFS, adjust this.
+# models/*
+# !models/.gitkeep
+# data/*
+# !data/.gitkeep
+# data/images/
+# data/videos/
+# data/helmet_dataset/
+# data/violations_output/
+# *.pt
+# *.pth
+# *.weights
+# *.onnx
+# *.engine
+# *.pb
+# *.h5
+# *.caffemodel
+# *.uff
+# *.tflite
+
+# Specific model files (can be more granular)
+models/*.pt
+models/*.pth
+models/*.weights
+models/*.onnx
+models/*.engine
+models/*.pb
+models/*.h5
+!models/.gitkeep # Allow keeping the directory structure
+
+# Specific data directories (can be more granular)
+data/images/*
+!data/images/.gitkeep
+data/videos/*
+!data/videos/.gitkeep
+data/helmet_dataset/*
+!data/helmet_dataset/.gitkeep
+data/violations_output/*
+!data/violations_output/.gitkeep
+data/*.db
+data/*.sqlite3
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE settings & project files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sublime-project
+*.sublime-workspace
+nbproject/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# DVC (Data Version Control) - if used
+# .dvc/
+# .dvcignore
+
+# Output directories from runs/experiments
+output/
+runs/
+experiments/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Notebook execution outputs (if not desired in version control)
+# .ipynb_checkpoints already covered
+# If notebooks themselves contain large outputs, consider cleaning them before commit
+# or using a tool like `nbstripout`.
+```

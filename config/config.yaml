@@ -1,0 +1,141 @@
+# Configuration for the Helmet Detection System
+
+# Model Configuration
+model:
+  # name: Can be a specific pre-trained model name (e.g., "yolov8n.pt") or a custom name.
+  # If 'path' points to an existing file, 'name' is mostly for reference.
+  # If 'path' does not exist, 'name' (if it's a standard ultralytics model like 'yolov8n.pt')
+  # can be used by YOLOHelmetDetector to download the model.
+  name: "yolov8n.pt" # Default to a generic COCO model if no custom model is present
+
+  # path: Path to the model file (.pt).
+  # If using a standard ultralytics model for the first time (e.g., "yolov8n.pt"),
+  # this path can also be where it's saved or simply the model name itself if you want ultralytics to manage it.
+  # For a custom trained model, this should be the direct path to your .pt file.
+  path: "models/yolov8n_helmet.pt" # Example path for a custom helmet-specific model
+                                  # If this file doesn't exist, YOLOHelmetDetector will try to load 'name' (e.g., 'yolov8n.pt')
+
+  source: "ultralytics" # Indicates the model framework/source.
+  confidence_threshold: 0.4 # Minimum confidence score for a detection.
+  iou_threshold: 0.5      # IoU threshold for Non-Maximum Suppression (NMS).
+
+  # --- Class Mapping ---
+  # This section is CRUCIAL for interpreting model outputs.
+  # It maps human-readable class names to the integer class IDs used by the model.
+  # The actual integer IDs depend on how the model was trained.
+
+  # Option 1: For a generic COCO-trained model (like default yolov8n.pt)
+  # These are standard COCO class IDs. We are primarily interested in 'person'.
+  # The ViolationDetector will use this to identify persons.
+  # coco_classes: &coco_classes # YAML anchor for reusability
+  #   person: 0
+  #   bicycle: 1
+  #   car: 2
+  #   motorcycle: 3 # etc. for other COCO classes if needed
+
+  # Option 2: For a custom-trained helmet detection model
+  # The class IDs (0, 1, etc.) MUST match your custom model's training.
+  # custom_helmet_classes: &custom_helmet_classes # YAML anchor
+  #   helmet: 0
+  #   no_helmet: 1
+  #   person_with_helmet: 0 # Alternative way to frame it
+  #   person_without_helmet: 1 # Alternative way to frame it
+  #   head: 2 # Some models might detect 'head' then classify helmet status
+
+  # --- Active Class Configuration ---
+  # Choose which class set is currently active based on the model being used.
+  # Type can be 'coco' (for generic models) or 'custom' (for helmet-specific models).
+  active_class_set_type: "coco" # "coco" or "custom_helmet"
+
+  # Define the actual class names and their IDs for the active set.
+  # This will be used by the YOLOHelmetDetector and ViolationDetector.
+  classes:
+    # If active_class_set_type is "coco":
+    person: 0
+    # If active_class_set_type is "custom_helmet" (example):
+    # helmet: 0
+    # no_helmet: 1
+    # head: 2
+
+  # Define which of the 'classes' are relevant for violation detection.
+  # This helps ViolationDetector focus on specific outcomes.
+  violation_relevant_classes:
+    # If active_class_set_type is "coco":
+    person: "person" # Target 'person' detections. Violation is if they don't have a helmet (logic TBD in ViolationDetector)
+
+    # If active_class_set_type is "custom_helmet" (example):
+    # no_helmet: "no_helmet" # Directly indicates a violation
+    # person_without_helmet: "person_without_helmet" # Also a direct violation
+    # head: "head" # A 'head' detection might need further logic to determine violation
+
+# Detection Settings
+detection:
+  resolution: [640, 480] # W, H for input frames to the model (if resizing is needed)
+  show_video: True       # Whether to display the video feed with detections
+  save_violations_video: False # Whether to save video clips of violations
+  violation_video_path: "data/violations_output/" # Path to save violation clips
+
+# Data Paths (primarily for training/evaluation, can be overridden by CLI args)
+data:
+  dataset_path: "data/helmet_dataset/" # Base path for custom dataset (e.g., for YOLOv5/v8 format)
+  # For YOLOv8, often a YAML file path is provided to the training script,
+  # which itself contains paths to train/val/test images and class names.
+  dataset_yaml: "data/helmet_dataset/dataset.yaml"
+
+  # train_images: "data/helmet_dataset/images/train/" # Kept for legacy or other uses
+  # train_labels: "data/helmet_dataset/labels/train/"
+  # val_images: "data/helmet_dataset/images/val/"
+  # val_labels: "data/helmet_dataset/labels/val/"
+  # test_images: "data/helmet_dataset/images/test/"
+  # test_labels: "data/helmet_dataset/labels/test/"
+
+# Training Configuration (can be overridden by CLI args or specific training script configs)
+training:
+  epochs: 50
+  batch_size: 16
+  imgsz: 640 # Image size for training
+  learning_rate: 0.001 # Initial learning rate (for optimizers like SGD, Adam)
+  optimizer: "Adam" # SGD, Adam, AdamW, etc. (ultralytics default is SGD, AdamW for some)
+  # Augmentation settings (ultralytics has its own defaults, can be overridden)
+  # See ultralytics documentation for available augmentation parameters.
+  # Example:
+  # augmentations:
+  #   hsv_h: 0.015  # Hue augmentation
+  #   hsv_s: 0.7    # Saturation augmentation
+  #   hsv_v: 0.4    # Value augmentation
+  #   degrees: 0.0  # Rotation
+  #   translate: 0.1 # Translation
+  #   scale: 0.5    # Scale
+  #   flipud: 0.0   # Flip up-down
+  #   fliplr: 0.5   # Flip left-right
+  #   mosaic: 1.0   # Mosaic augmentation
+  #   mixup: 0.0    # Mixup augmentation
+
+# Database Configuration (if using DBManager)
+database:
+  enabled: False
+  type: "sqlite"
+  path: "data/violations.db"
+  host: "localhost"
+  port: 5432
+  username: "user"
+  password: "password"
+  db_name: "helmet_violations"
+
+# Notification System Configuration (if using Notifier)
+notifications:
+  enabled: False
+  type: "email"
+  email:
+    SENDER_EMAIL: "your_email@example.com"
+    SENDER_PASSWORD: "your_email_password"
+    SMTP_SERVER: "smtp.example.com"
+    SMTP_PORT: 587
+    RECIPIENT_EMAILS: ["admin@example.com", "safety_officer@example.com"]
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  file: "logs/app.log"
+  max_bytes: 10485760 # 10MB
+  backup_count: 5
